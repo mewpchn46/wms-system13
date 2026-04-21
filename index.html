@@ -641,18 +641,24 @@ function setSyncStatus(state, text){
   tx.textContent = text;
 }
 
-async function apiGet(action, params=''){
-  try {
+function apiGet(action, params=''){
+  return new Promise((resolve) => {
     setSyncStatus('syncing','กำลังโหลด...');
-    const res = await fetch(API_URL + '?action=' + action + (params?'&'+params:''));
-    const data = await res.json();
-    setSyncStatus('ok','ซิงค์แล้ว ✓');
-    return data;
-  } catch(e) {
-    setSyncStatus('err','เชื่อมต่อไม่ได้');
-    console.error('API GET error:', e);
-    return {success:false, error:e.message};
-  }
+    const cbName = 'cb_' + Date.now();
+    const script = document.createElement('script');
+    window[cbName] = function(data){
+      delete window[cbName];
+      document.body.removeChild(script);
+      setSyncStatus('ok','ซิงค์แล้ว ✓');
+      resolve(data);
+    };
+    script.onerror = function(){
+      setSyncStatus('err','เชื่อมต่อไม่ได้');
+      resolve({success:false});
+    };
+    script.src = API_URL + '?action=' + action + (params?'&'+params:'') + '&callback=' + cbName;
+    document.body.appendChild(script);
+  });
 }
 
 async function apiPost(body){
